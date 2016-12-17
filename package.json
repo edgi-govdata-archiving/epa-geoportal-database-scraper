@@ -1,0 +1,13 @@
+{
+  "name": "epa-geo-portal-database-scraper",
+  "version": "0.0.1",
+  "main": "index.js",
+  "author": "Ates Goral <ates@magnetiq.com>",
+  "license": "ISC",
+  "private": true,
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "request": "^2.79.0",
+    "request-promise-native": "^1.0.3"
+  }
+}
