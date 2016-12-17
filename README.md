@@ -12,7 +12,7 @@ Then install the dependencies:
 
 Then set the SCRAPER_EMAIL environment variable to the recipient email address and run the index.js Node.js script:
 
-`SCARPER_EMAIL=ates@magnetiq.com node index`
+`SCARPER_EMAIL=joe@example.com node index`
 
 ## Environment Variables
 
