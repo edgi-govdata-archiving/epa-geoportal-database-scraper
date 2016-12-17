@@ -20,3 +20,11 @@ Then set the SCRAPER_EMAIL environment variable to the recipient email address a
 * SCRAPER_DOWNLOAD_URL - The download request submit URL. Overwrite for testing. Defaults to: http://gis.epa.ie/getdata/downloaddata
 * SCRAPER_MAX_DOCS - The maximum number of documents to request. Overwrite for testing. Defaults to nothing (i.e. request everything).
 * SCRAPER_EMAIL - The recipient email address. Must be set.
+
+# Findings / Approach
+
+The index page uses a navigation paradigm that shows radio buttons in chunks, but in fact all the radio buttons are present on the page. The script fetches the HTML and grabs the document IDs from the radio buttons on the page.
+
+The download request form includes a CAPTCHA. but it turned out to be a pure-client-side check that can be completely bypassed by directly submitting the required fields to the target URL.
+
+The "X-Requested-With" parameter (not HTTP header) somehow needed to be submitted along with the other fields.
