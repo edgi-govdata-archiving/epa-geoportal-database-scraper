@@ -2,6 +2,8 @@
 
 Scrapes all the document IDs on http://gis.epa.ie/GetData/Download and submits requests for download links to be emailed to a specified email address.
 
+Capturing of the emails, parsing of the download links, the download and extraction of the actual documents is not within the scope of this project.
+
 # Usage
 
 Check out this repository.
