@@ -14,7 +14,7 @@ Head over to [Mailback](http://mailback.io) and create a new mailbox.
 
 Then set the SCRAPER_MAILBACK_MAILBOX environment variable to the mailbox ID from above and run the index.js Node.js script:
 
-`SCRAPER_EMAIL=joe@example.com node index`
+`SCRAPER_MAILBACK_MAILBOX=##### node index`
 
 ## Environment Variables
 
