@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "main": "index.js",
   "author": "Ates Goral <ates@magnetiq.com>",
-  "license": "ISC",
+  "license": "GPL 3",
   "private": true,
   "dependencies": {
     "cheerio": "^0.22.0",
