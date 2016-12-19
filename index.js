@@ -15,6 +15,57 @@ const config = {
   maxDocs: parseInt(process.env.SCRAPER_MAX_DOCS, 10) || Infinity
 };
 
+function openZipFile(zipData) {
+  return new Promise((resolve, reject) => {
+    yauzl.fromBuffer(Buffer.from(zipData), { lazyEntries: true }, (err, zipFile) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(zipFile);
+      }
+    });
+  });
+}
+
+function unpackZipFile(zipFile, destinationDirectory) {
+  return new Promise((resolve, reject) => {
+    zipFile.on('entry', entry => {
+      const fullPath = path.join(destinationDirectory, entry.fileName);
+
+      if (/\/$/.test(entry.fileName)) {
+        mkdirp(fullPath, error => {
+          if (error) {
+            reject(error);
+          } else {
+            zipFile.readEntry();
+          }
+        });
+      } else {
+        zipFile.openReadStream(entry, (error, readStream) => {
+          if (error) {
+            reject(error);
+          } else {
+            mkdirp(path.dirname(fullPath), error => {
+              if (error) {
+                reject(error);
+              } else {
+                readStream.pipe(fs.createWriteStream(fullPath));
+                readStream.on('end', () => {
+                  zipFile.readEntry();
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    zipFile.on('end', resolve);
+
+    zipFile.readEntry();
+  });
+}
+
 function archiveFile(file) {
   return Promise.resolve()
     .then(() => {
@@ -22,7 +73,7 @@ function archiveFile(file) {
 
       const email = config.mailbackMailbox + '@mail.mailback.io';
 
-      const options = {
+      return rp({
         uri: config.downloadUrl,
         method: 'POST',
         form: {
@@ -31,76 +82,25 @@ function archiveFile(file) {
           reEmail: email,
           'X-Requested-With': 'XMLHttpRequest'
         }
-      };
-
-      return rp(options);
+      });
     })
     .then(() => {
       console.log('File requested');
 
-      const options = {
+      return rp({
         uri: `http://mailback.io/go/${config.mailbackMailbox}`,
         encoding: null
-      };
-
-      return rp(options);
+      });
     })
     .then(zipData => {
       console.log('File received');
 
-      return new Promise((resolve, reject) => {
-        const options = {
-          lazyEntries: true
-        };
-
-        yauzl.fromBuffer(Buffer.from(zipData), options, (err, zipFile) => {
-          if (err) {
-            return reject(err);
-          }
-
-          resolve(zipFile);
-        });
-      });
+      return openZipFile(zipData);
     })
     .then(zipFile => {
       console.log('Unpacking file');
 
-      return new Promise((resolve, reject) => {
-        zipFile.on('entry', entry => {
-          const fullPath = path.join(__dirname, 'archive', file.id, entry.fileName);
-
-          if (/\/$/.test(entry.fileName)) {
-            mkdirp(fullPath, error => {
-              if (error) {
-                reject(error);
-              } else {
-                zipFile.readEntry();
-              }
-            });
-          } else {
-            zipFile.openReadStream(entry, (error, readStream) => {
-              if (error) {
-                reject(error);
-              } else {
-                mkdirp(path.dirname(fullPath), error => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    readStream.pipe(fs.createWriteStream(fullPath));
-                    readStream.on('end', () => {
-                      zipFile.readEntry();
-                    });
-                  }
-                });
-              }
-            });
-          }
-        });
-
-        zipFile.on('end', resolve);
-
-        zipFile.readEntry();
-      });
+      return unpackZipFile(zipFile, path.join(__dirname, 'archive', file.id));
     })
     .then(() => {
       console.log('Unpacking done');
