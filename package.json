@@ -7,8 +7,9 @@
   "private": true,
   "dependencies": {
     "cheerio": "^0.22.0",
+    "mkdirp": "^0.5.1",
     "request": "^2.79.0",
     "request-promise-native": "^1.0.3",
-    "unzip": "^0.1.11"
+    "yauzl": "^2.7.0"
   }
 }

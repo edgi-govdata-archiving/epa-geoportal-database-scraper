@@ -1,9 +1,10 @@
 const fs = require('fs');
+const path = require('path');
 
-const request = require('request');
 const rp = require('request-promise-native');
 const cheerio = require('cheerio');
-const unzip = require('unzip');
+const yauzl = require('yauzl');
+const mkdirp = require('mkdirp');
 
 const config = {
   indexUrl: process.env.SCRAPER_INDEX_URL || 'http://gis.epa.ie/GetData/Download',
@@ -60,18 +61,75 @@ getIdList()
         .then(response => {
           console.log(`Submitted request for ID ${id}`)
 
+          const options = {
+            uri: `http://mailback.io/go/${config.mailbackMailbox}`,
+            encoding: null
+          };
+
+          return rp(options);
+        })
+        .then(zipData => {
+          console.log('Got response from Mailback');
+
           return new Promise((resolve, reject) => {
-            request(`http://mailback.io/go/${config.mailbackMailbox}`)
-              .pipe(unzip.Extract({ path: `archive/${id}` }))
-              .on('finish', resolve)
-              .on('error', reject);
+            const options = {
+              lazyEntries: true
+            };
+
+            yauzl.fromBuffer(Buffer.from(zipData), options, (err, zipFile) => {
+              if (err) {
+                return reject(err);
+              }
+
+              resolve(zipFile);
+            });
           });
         })
-        .then(response => {
-          console.log('Archived');
+        .then(zipFile => {
+          console.log('Got zip file');
+
+          return new Promise((resolve, reject) => {
+            zipFile.on('entry', entry => {
+              const fullPath = path.join(__dirname, 'archive', id, entry.fileName);
+
+              if (/\/$/.test(entry.fileName)) {
+                mkdirp(fullPath, error => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    zipFile.readEntry();
+                  }
+                });
+              } else {
+                zipFile.openReadStream(entry, (error, readStream) => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    mkdirp(path.dirname(fullPath), error => {
+                      if (error) {
+                        reject(error);
+                      } else {
+                        readStream.pipe(fs.createWriteStream(fullPath));
+                        readStream.on('end', () => {
+                          zipFile.readEntry();
+                        });
+                      }
+                    });
+                  }
+                });
+              }
+            });
+
+            zipFile.on('end', resolve);
+
+            zipFile.readEntry();
+          });
+        })
+        .then(() => {
+          console.log('Unpacked');
         })
         .catch(error => {
-          console.error('Fetch failed', error);
+          console.error('Error', error);
         });
     });
   })
