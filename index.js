@@ -22,44 +22,49 @@ function enqueue(items, promiseFactory) {
   }
 }
 
-function getIdList() {
-  return rp(config.indexUrl)
-    .then(html => {
-      const $ = cheerio.load(html);
+Promise.resolve()
+  .then(() => {
+    console.log('Fetching index HTML');
 
-      return $('.SelectedFile')
-        .map((idx, el) => {
-          const id = $(el).val();
-          return id;
-        })
-        .get();
-    })
-    .catch(error => {
-      console.error('Fetch failed', error);
-    });
-}
+    return rp(config.indexUrl);
+  })
+  .then(html => {
+    console.log('Extracting file metadata');
 
-getIdList()
-  .then(idList => {
-    console.log(`Got ${idList.length} IDs`);
+    const $ = cheerio.load(html);
+
+    return $('.SelectedFile')
+      .map((idx, el) => {
+        const id = $(el).val();
+
+        return {
+          id
+        };
+      })
+      .get();
+  })
+  .then(fileList => {
+    console.log(`Found ${fileList.length} files`);
 
     const email = config.mailbackMailbox + '@mail.mailback.io';
 
-    return enqueue(idList.slice(0, config.maxDocs), id => {
+    return enqueue(fileList.slice(0, config.maxDocs), file => {
       const options = {
         uri: config.downloadUrl,
         method: 'POST',
         form: {
-          SelectedFile: id,
+          SelectedFile: file.id,
           Email: email,
           reEmail: email,
           'X-Requested-With': 'XMLHttpRequest'
         }
       };
 
+      console.log(`Requesting file ${file.id}`);
+
       return rp(options)
         .then(response => {
-          console.log(`Submitted request for ID ${id}`)
+          console.log('File requested');
 
           const options = {
             uri: `http://mailback.io/go/${config.mailbackMailbox}`,
@@ -69,7 +74,7 @@ getIdList()
           return rp(options);
         })
         .then(zipData => {
-          console.log('Got response from Mailback');
+          console.log('File received');
 
           return new Promise((resolve, reject) => {
             const options = {
@@ -86,11 +91,11 @@ getIdList()
           });
         })
         .then(zipFile => {
-          console.log('Got zip file');
+          console.log('Unpacking file');
 
           return new Promise((resolve, reject) => {
             zipFile.on('entry', entry => {
-              const fullPath = path.join(__dirname, 'archive', id, entry.fileName);
+              const fullPath = path.join(__dirname, 'archive', file.id, entry.fileName);
 
               if (/\/$/.test(entry.fileName)) {
                 mkdirp(fullPath, error => {
@@ -126,7 +131,7 @@ getIdList()
           });
         })
         .then(() => {
-          console.log('Unpacked');
+          console.log('Unpacking done');
         })
         .catch(error => {
           console.error('Error', error);
