@@ -118,12 +118,33 @@ Promise.resolve()
 
     const $ = cheerio.load(html);
 
-    return $('.SelectedFile')
+    const categoryList = $('.categories h3')
       .map((idx, el) => {
-        const id = $(el).val();
+        const $el = $(el);
 
         return {
-          id
+          id: $el.attr('class').replace(/\D/g, ''),
+          name: $el.text()
+        };
+      })
+      .get();
+
+    const categoryMap = {};
+
+    categoryList.forEach(category => {
+      categoryMap[category.id] = category;
+    });
+
+    return $('.SelectedFile')
+      .map((idx, el) => {
+        const $el = $(el);
+
+        const categoryId = $el.closest('p').attr('class').replace(/\D/g, '');
+
+        return {
+          id: $el.val(),
+          category: categoryMap[categoryId],
+          name: $el.parent().text()
         };
       })
       .get();
