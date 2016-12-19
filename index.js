@@ -6,6 +6,8 @@ const cheerio = require('cheerio');
 const yauzl = require('yauzl');
 const mkdirp = require('mkdirp');
 
+const enqueue = require('./enqueue');
+
 const config = {
   indexUrl: process.env.SCRAPER_INDEX_URL || 'http://gis.epa.ie/GetData/Download',
   downloadUrl: process.env.SCRAPER_DOWNLOAD_URL || 'http://gis.epa.ie/getdata/downloaddata',
@@ -13,13 +15,96 @@ const config = {
   maxDocs: parseInt(process.env.SCRAPER_MAX_DOCS, 10) || Infinity
 };
 
-function enqueue(items, promiseFactory) {
-  if (!items.length) {
-    return Promise.resolve();
-  } else {
-    return promiseFactory(items[0])
-      .then(() => enqueue(items.slice(1), promiseFactory));
-  }
+function archiveFile(file) {
+  return Promise.resolve()
+    .then(() => {
+      console.log(`Archiving file ${file.id}`);
+
+      const email = config.mailbackMailbox + '@mail.mailback.io';
+
+      const options = {
+        uri: config.downloadUrl,
+        method: 'POST',
+        form: {
+          SelectedFile: file.id,
+          Email: email,
+          reEmail: email,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      };
+
+      return rp(options);
+    })
+    .then(() => {
+      console.log('File requested');
+
+      const options = {
+        uri: `http://mailback.io/go/${config.mailbackMailbox}`,
+        encoding: null
+      };
+
+      return rp(options);
+    })
+    .then(zipData => {
+      console.log('File received');
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          lazyEntries: true
+        };
+
+        yauzl.fromBuffer(Buffer.from(zipData), options, (err, zipFile) => {
+          if (err) {
+            return reject(err);
+          }
+
+          resolve(zipFile);
+        });
+      });
+    })
+    .then(zipFile => {
+      console.log('Unpacking file');
+
+      return new Promise((resolve, reject) => {
+        zipFile.on('entry', entry => {
+          const fullPath = path.join(__dirname, 'archive', file.id, entry.fileName);
+
+          if (/\/$/.test(entry.fileName)) {
+            mkdirp(fullPath, error => {
+              if (error) {
+                reject(error);
+              } else {
+                zipFile.readEntry();
+              }
+            });
+          } else {
+            zipFile.openReadStream(entry, (error, readStream) => {
+              if (error) {
+                reject(error);
+              } else {
+                mkdirp(path.dirname(fullPath), error => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    readStream.pipe(fs.createWriteStream(fullPath));
+                    readStream.on('end', () => {
+                      zipFile.readEntry();
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+
+        zipFile.on('end', resolve);
+
+        zipFile.readEntry();
+      });
+    })
+    .then(() => {
+      console.log('Unpacking done');
+    });
 }
 
 Promise.resolve()
@@ -44,98 +129,15 @@ Promise.resolve()
       .get();
   })
   .then(fileList => {
-    console.log(`Found ${fileList.length} files`);
+    console.log(`Found ${fileList.length} file(s)`);
 
-    const email = config.mailbackMailbox + '@mail.mailback.io';
+    const filesToArchive = Math.min(fileList.length, config.maxDocs);
 
-    return enqueue(fileList.slice(0, config.maxDocs), file => {
-      const options = {
-        uri: config.downloadUrl,
-        method: 'POST',
-        form: {
-          SelectedFile: file.id,
-          Email: email,
-          reEmail: email,
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      };
+    console.log(`Archiving ${filesToArchive} file(s)`);
 
-      console.log(`Requesting file ${file.id}`);
-
-      return rp(options)
-        .then(response => {
-          console.log('File requested');
-
-          const options = {
-            uri: `http://mailback.io/go/${config.mailbackMailbox}`,
-            encoding: null
-          };
-
-          return rp(options);
-        })
-        .then(zipData => {
-          console.log('File received');
-
-          return new Promise((resolve, reject) => {
-            const options = {
-              lazyEntries: true
-            };
-
-            yauzl.fromBuffer(Buffer.from(zipData), options, (err, zipFile) => {
-              if (err) {
-                return reject(err);
-              }
-
-              resolve(zipFile);
-            });
-          });
-        })
-        .then(zipFile => {
-          console.log('Unpacking file');
-
-          return new Promise((resolve, reject) => {
-            zipFile.on('entry', entry => {
-              const fullPath = path.join(__dirname, 'archive', file.id, entry.fileName);
-
-              if (/\/$/.test(entry.fileName)) {
-                mkdirp(fullPath, error => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    zipFile.readEntry();
-                  }
-                });
-              } else {
-                zipFile.openReadStream(entry, (error, readStream) => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    mkdirp(path.dirname(fullPath), error => {
-                      if (error) {
-                        reject(error);
-                      } else {
-                        readStream.pipe(fs.createWriteStream(fullPath));
-                        readStream.on('end', () => {
-                          zipFile.readEntry();
-                        });
-                      }
-                    });
-                  }
-                });
-              }
-            });
-
-            zipFile.on('end', resolve);
-
-            zipFile.readEntry();
-          });
-        })
-        .then(() => {
-          console.log('Unpacking done');
-        })
-        .catch(error => {
-          console.error('Error', error);
-        });
-    });
+    return enqueue(fileList.slice(0, filesToArchive), archiveFile)
+  })
+  .then(() => {
+    console.log('All files archived!');
   })
   .catch(console.error);
