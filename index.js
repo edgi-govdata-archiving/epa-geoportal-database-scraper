@@ -69,7 +69,7 @@ function unpackZipFile(zipFile, destinationDirectory) {
 function archiveFile(file) {
   return Promise.resolve()
     .then(() => {
-      console.log(`Archiving file ${file.id}`);
+      console.log(`Archiving file ${file.id} (${file.category.name}/${file.name})`);
 
       const email = config.mailbackMailbox + '@mail.mailback.io';
 
