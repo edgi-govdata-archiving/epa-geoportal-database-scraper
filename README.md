@@ -1,6 +1,6 @@
 # EPA Geo Portal Database Scraper
 
-Scrapes all the document IDs on http://gis.epa.ie/GetData/Download and submits requests for download links to be emailed to a specified email address.
+Scrapes all the document IDs on http://gis.epa.ie/GetData/Download and submits requests for download links to be emailed to a Mailback mailbox, and then fetches the zip file in the Mailback response and unpacks it to the local archive folder.
 
 # Usage
 
