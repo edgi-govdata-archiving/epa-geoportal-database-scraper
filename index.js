@@ -150,6 +150,21 @@ function archiveFile(file) {
     });
 }
 
+function writeManifest(fileList) {
+  const manifest = fileList;
+
+  return new Promise((resolve, reject) => {
+    fs.writeFile(path.join(archiveDirectory, 'manifest.json'), JSON.stringify(manifest, null, 2), (error) => {
+      if (error) {
+        reject(error);
+      } else {
+        console.log(chalk.gray('Manifest written'));
+        resolve();
+      }
+    });
+  });
+}
+
 console.log('Archiving EPA Geo Portal data to:', archiveDirectory);
 console.log(chalk.gray('Started at:', startedAt.toLocaleString()));
 
@@ -202,25 +217,13 @@ Promise.resolve()
 
     console.log(`Archiving ${filesToArchive} file(s)`);
 
-    return enqueue(fileList.slice(0, filesToArchive), archiveFile);
-  })
-  .then((archivedFileList) => {
-    console.log('All files archived');
-
-    const manifest = archivedFileList;
-
-    return new Promise((resolve, reject) => {
-      fs.writeFile(path.join(archiveDirectory, 'manifest.json'), JSON.stringify(manifest, null, 2), (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
-      });
-    });
-  })
-  .then(() => {
-    console.log('Manifest written');
+    return enqueue(
+      fileList.slice(0, filesToArchive),
+      (file) => {
+        return archiveFile(file)
+          .then(() => writeManifest(filesToArchive));
+      }
+    );
   })
   .then(() => {
     console.log(chalk.green('All done!'));
