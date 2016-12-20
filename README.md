@@ -16,11 +16,11 @@ Then set the SCRAPER_MAILBACK_MAILBOX environment variable to the mailbox ID fro
 
 ## Environment Variables
 
+* SCRAPER_MAILBACK_MAILBOX - **Required.** Mailback mailbox ID.
 * SCRAPER_INDEX_URL - The document index page URL. Overwrite for testing. Defaults to: http://gis.epa.ie/GetData/Download
 * SCRAPER_DOWNLOAD_URL - The download request submit URL. Overwrite for testing. Defaults to: http://gis.epa.ie/getdata/downloaddata
 * SCRAPER_MAX_DOCS - The maximum number of documents to request. Overwrite for testing. Defaults to nothing (i.e. request everything).
 * SCRAPER_START_IDX - The starting index (zero-based). Overwrite for testing or retrying a particular file. Defaults to 0 (i.e. start from the beginning).
-* SCRAPER_MAILBACK_MAILBOX - Mailback mailbox ID. Must be set.
 
 # Findings / Approach
 
