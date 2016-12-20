@@ -112,7 +112,7 @@ function archiveFile(file) {
       console.log(chalk.gray('Located file URL:', fileUrl));
 
       const parsed = url.parse(fileUrl);
-      const name = path.basename(parsed.pathname, '.zip');
+      const name = decodeURIComponent(path.basename(parsed.pathname, '.zip'));
 
       file.url = fileUrl;
       file.name = name;
