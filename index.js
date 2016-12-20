@@ -117,16 +117,19 @@ function archiveFile(file) {
 
       return rp({
         uri: fileUrl,
+        resolveWithFullResponse: true,
         encoding: null
       });
     })
-    .then(zipData => {
+    .then(response => {
       console.log(chalk.gray('File received'));
 
+      const zipData = response.body;
       const shasum = crypto.createHash('sha1');
 
       shasum.update(zipData);
 
+      file.lastModifiedAt = new Date(response.headers['last-modified']);
       file.receivedAt = new Date();
       file.sha1sum = shasum.digest('hex');
 
