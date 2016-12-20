@@ -162,7 +162,7 @@ function archiveFile(file) {
     .then(zipData => {
       console.log(chalk.gray('File saved'));
 
-      return openZipFile(zipData);
+      //return openZipFile(zipData);
     })
     // @todo disabled unpacking for now -- yauzl is bailing on file ID 11
     // .then(zipFile => {
