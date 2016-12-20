@@ -1,12 +1,10 @@
 # EPA Geo Portal Database Scraper
 
-Scrapes all the document IDs on http://gis.epa.ie/GetData/Download and submits requests for download links to be emailed to a Mailback mailbox, and then fetches the zip file in the Mailback response and unpacks it to the local archive folder.
+Archives all ZIP files on http://gis.epa.ie/GetData/Download.
 
 # Usage
 
-Check out this repository.
-
-Then install the dependencies:
+Check out this repository. Then install the dependencies:
 
 `yarn` or `npm install`
 
@@ -31,3 +29,15 @@ The index page uses a navigation paradigm that shows radio buttons in chunks, bu
 The download request form includes a CAPTCHA. but it turned out to be a pure-client-side check that can be completely bypassed by directly submitting the required fields to the target URL.
 
 The "X-Requested-With" parameter (not HTTP header) somehow needed to be submitted along with the other fields.
+
+# How It Works
+
+1. Fetches the index page and extracts all document IDs
+2. Submits the download request form for each document ID while using a Mailback mailbox email address
+3. Fetches the HTML content of the email from Mailback
+4. Extracts the first link in the HTML (it points to a ZIP file)
+5. Downloads the ZIP file
+6. Saves the ZIP file under the archive folder
+7. Updates manifest.json file under the archive folder
+
+The ability to unpack the ZIP files is already in the code, but due to a failure in unpacking the file with ID 11 (due to limitation/issue in yauzl), it is currently disabled. Besides, just archiving the ZIP files should be enough.
