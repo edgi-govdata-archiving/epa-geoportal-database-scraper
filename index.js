@@ -16,11 +16,30 @@ const config = {
   indexUrl: process.env.SCRAPER_INDEX_URL || 'http://gis.epa.ie/GetData/Download',
   downloadUrl: process.env.SCRAPER_DOWNLOAD_URL || 'http://gis.epa.ie/getdata/downloaddata',
   mailbackMailbox: process.env.SCRAPER_MAILBACK_MAILBOX,
-  maxDocs: parseInt(process.env.SCRAPER_MAX_DOCS, 10) || Infinity
+  maxDocs: parseInt(process.env.SCRAPER_MAX_DOCS, 10) || Infinity,
+  startIdx: parseInt(process.env.SCRAPER_START_IDX, 10) || 0,
 };
 
 const archiveDirectory = path.join(__dirname, 'archive');
 const startedAt = new Date();
+
+function saveZipFile(zipData, name) {
+  return new Promise((resolve, reject) => {
+    mkdirp(archiveDirectory, error => {
+      if (error) {
+        reject(error);
+      } else {
+        fs.writeFile(path.join(archiveDirectory, name + '.zip'), zipData, (error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(zipData);
+          }
+        });
+      }
+    });
+  });
+}
 
 function openZipFile(zipData) {
   return new Promise((resolve, reject) => {
@@ -138,16 +157,25 @@ function archiveFile(file) {
       console.log(chalk.gray('Last modified:', file.lastModifiedAt.toLocaleString()));
       console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
 
+      return saveZipFile(zipData, file.name);
+    })
+    .then(zipData => {
+      console.log(chalk.gray('File saved'));
+
       return openZipFile(zipData);
     })
-    .then(zipFile => {
-      console.log(chalk.gray('Unpacking file'));
-
-      return unpackZipFile(zipFile, path.join(archiveDirectory, file.name));
+    // @todo disabled unpacking for now -- yauzl is bailing on file ID 11
+    // .then(zipFile => {
+    //   console.log(chalk.gray('Unpacking file'));
+    //
+    //   return unpackZipFile(zipFile, path.join(archiveDirectory, file.name));
+    // })
+    // .then(() => {
+    //   console.log(chalk.gray('Unpacking done'));
+    // })
+    .catch(error => {
+      console.error(chalk.red('Error archiving file:', error));
     })
-    .then(() => {
-      console.log(chalk.gray('Unpacking done'));
-    });
 }
 
 function writeManifest(fileList) {
@@ -158,7 +186,6 @@ function writeManifest(fileList) {
       if (error) {
         reject(error);
       } else {
-        console.log(chalk.gray('Manifest written'));
         resolve();
       }
     });
@@ -213,15 +240,17 @@ Promise.resolve()
   .then(fileList => {
     console.log(chalk.gray(`Found ${fileList.length} file(s)`));
 
-    const filesToArchive = Math.min(fileList.length, config.maxDocs);
+    const numFilesToArchive = Math.min(fileList.length, config.maxDocs);
+    const archivableFileList = fileList.slice(config.startIdx, config.startIdx + numFilesToArchive);
 
-    console.log(`Archiving ${filesToArchive} file(s)`);
+    console.log(`Archiving ${archivableFileList.length} file(s)`);
 
     return enqueue(
-      fileList.slice(0, filesToArchive),
+      archivableFileList,
       (file) => {
         return archiveFile(file)
-          .then(() => writeManifest(filesToArchive));
+          .then(() => writeManifest(archivableFileList))
+          .then(() => console.log(chalk.gray('Manifest written')));
       }
     );
   })
@@ -235,3 +264,7 @@ Promise.resolve()
     console.log(chalk.gray('Elapsed:', humanizeDuration(elapsed)));
   })
   .catch(chalk.red(console.error));
+
+  process.on('unhandledRejection', (reason, p) => {
+    console.error(chalk.red('Unhandled rejection at Promise', p, 'reason:', reason));
+  });
