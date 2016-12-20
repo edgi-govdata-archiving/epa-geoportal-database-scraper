@@ -133,6 +133,7 @@ function archiveFile(file) {
       file.receivedAt = new Date();
       file.sha1sum = shasum.digest('hex');
 
+      console.log(chalk.gray('Last modified:', file.lastModifiedAt));
       console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
 
       return openZipFile(zipData);
@@ -146,6 +147,8 @@ function archiveFile(file) {
       console.log(chalk.gray('Unpacking done'));
     });
 }
+
+console.log('Archiving to:', archiveDirectory);
 
 Promise.resolve()
   .then(() => {
