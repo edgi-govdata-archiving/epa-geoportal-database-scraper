@@ -8,6 +8,7 @@ const cheerio = require('cheerio');
 const yauzl = require('yauzl');
 const mkdirp = require('mkdirp');
 const chalk = require('chalk');
+const humanizeDuration = require('humanize-duration');
 
 const enqueue = require('./lib/enqueue');
 
@@ -19,6 +20,7 @@ const config = {
 };
 
 const archiveDirectory = path.join(__dirname, 'archive');
+const startedAt = new Date();
 
 function openZipFile(zipData) {
   return new Promise((resolve, reject) => {
@@ -133,7 +135,7 @@ function archiveFile(file) {
       file.receivedAt = new Date();
       file.sha1sum = shasum.digest('hex');
 
-      console.log(chalk.gray('Last modified:', file.lastModifiedAt));
+      console.log(chalk.gray('Last modified:', file.lastModifiedAt.toLocaleString()));
       console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
 
       return openZipFile(zipData);
@@ -148,7 +150,8 @@ function archiveFile(file) {
     });
 }
 
-console.log('Archiving to:', archiveDirectory);
+console.log('Archiving EPA Geo Portal data to:', archiveDirectory);
+console.log(chalk.gray('Started at:', startedAt.toLocaleString()));
 
 Promise.resolve()
   .then(() => {
@@ -221,5 +224,11 @@ Promise.resolve()
   })
   .then(() => {
     console.log(chalk.green('All done!'));
+
+    const finishedAt = new Date();
+    const elapsed = finishedAt - startedAt;
+
+    console.log(chalk.gray('Finished at:', finishedAt.toLocaleString()));
+    console.log(chalk.gray('Elapsed:', humanizeDuration(elapsed)));
   })
   .catch(chalk.red(console.error));
