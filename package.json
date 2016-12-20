@@ -6,6 +6,7 @@
   "license": "GPL 3",
   "private": true,
   "dependencies": {
+    "chalk": "^1.1.3",
     "cheerio": "^0.22.0",
     "mkdirp": "^0.5.1",
     "request": "^2.79.0",

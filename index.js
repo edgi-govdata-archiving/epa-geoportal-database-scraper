@@ -1,12 +1,15 @@
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
+const crypto = require('crypto');
 
 const rp = require('request-promise-native');
 const cheerio = require('cheerio');
 const yauzl = require('yauzl');
 const mkdirp = require('mkdirp');
+const chalk = require('chalk');
 
-const enqueue = require('./enqueue');
+const enqueue = require('./lib/enqueue');
 
 const config = {
   indexUrl: process.env.SCRAPER_INDEX_URL || 'http://gis.epa.ie/GetData/Download',
@@ -14,6 +17,8 @@ const config = {
   mailbackMailbox: process.env.SCRAPER_MAILBACK_MAILBOX,
   maxDocs: parseInt(process.env.SCRAPER_MAX_DOCS, 10) || Infinity
 };
+
+const archiveDirectory = path.join(__dirname, 'archive');
 
 function openZipFile(zipData) {
   return new Promise((resolve, reject) => {
@@ -69,9 +74,9 @@ function unpackZipFile(zipFile, destinationDirectory) {
 function archiveFile(file) {
   return Promise.resolve()
     .then(() => {
-      console.log(`Archiving file ${file.id} (${file.category.name}/${file.name})`);
+      console.log(`Archiving file ${file.id} (${file.category.title}/${file.title})`);
 
-      const email = config.mailbackMailbox + '@mail.mailback.io';
+      const email = `${config.mailbackMailbox}+${file.id}@mail.mailback.io`;
 
       return rp({
         uri: config.downloadUrl,
@@ -85,25 +90,57 @@ function archiveFile(file) {
       });
     })
     .then(() => {
-      console.log('File requested');
+      console.log(chalk.gray('File requested'));
+
+      return rp(`http://mailback.io/html/${config.mailbackMailbox}/${file.id}`);
+    })
+    .then(html => {
+      console.log(chalk.gray('Email received'));
+
+      const $ = cheerio.load(html);
+      const fileUrl = $('a').attr('href');
+
+      if (!fileUrl) {
+        throw new Error('Could not locate URL in email');
+      }
+
+      return fileUrl;
+    })
+    .then(fileUrl => {
+      console.log(chalk.gray('Located file URL:', fileUrl));
+
+      const parsed = url.parse(fileUrl);
+      const name = path.basename(parsed.pathname, '.zip');
+
+      file.url = fileUrl;
+      file.name = name;
 
       return rp({
-        uri: `http://mailback.io/go/${config.mailbackMailbox}`,
+        uri: fileUrl,
         encoding: null
       });
     })
     .then(zipData => {
-      console.log('File received');
+      console.log(chalk.gray('File received'));
+
+      const shasum = crypto.createHash('sha1');
+
+      shasum.update(zipData);
+
+      file.receivedAt = new Date();
+      file.sha1sum = shasum.digest('hex');
+
+      console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
 
       return openZipFile(zipData);
     })
     .then(zipFile => {
-      console.log('Unpacking file');
+      console.log(chalk.gray('Unpacking file'));
 
-      return unpackZipFile(zipFile, path.join(__dirname, 'archive', file.id));
+      return unpackZipFile(zipFile, path.join(archiveDirectory, file.name));
     })
     .then(() => {
-      console.log('Unpacking done');
+      console.log(chalk.gray('Unpacking done'));
     });
 }
 
@@ -124,7 +161,7 @@ Promise.resolve()
 
         return {
           id: $el.attr('class').replace(/\D/g, ''),
-          name: $el.text()
+          title: $el.text()
         };
       })
       .get();
@@ -144,21 +181,39 @@ Promise.resolve()
         return {
           id: $el.val(),
           category: categoryMap[categoryId],
-          name: $el.parent().text()
+          title: $el.parent().text()
         };
       })
       .get();
   })
   .then(fileList => {
-    console.log(`Found ${fileList.length} file(s)`);
+    console.log(chalk.gray(`Found ${fileList.length} file(s)`));
 
     const filesToArchive = Math.min(fileList.length, config.maxDocs);
 
     console.log(`Archiving ${filesToArchive} file(s)`);
 
-    return enqueue(fileList.slice(0, filesToArchive), archiveFile)
+    return enqueue(fileList.slice(0, filesToArchive), archiveFile);
+  })
+  .then((archivedFileList) => {
+    console.log('All files archived');
+
+    const manifest = archivedFileList;
+
+    return new Promise((resolve, reject) => {
+      fs.writeFile(path.join(archiveDirectory, 'manifest.json'), JSON.stringify(manifest, null, 2), (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
   })
   .then(() => {
-    console.log('All files archived!');
+    console.log('Manifest written');
   })
-  .catch(console.error);
+  .then(() => {
+    console.log(chalk.green('All done!'));
+  })
+  .catch(chalk.red(console.error));
