@@ -178,6 +178,7 @@ function scrapeFile(file) {
     })
     .then(() => {
       console.log(chalk.gray('File scraped'));
+      delete file.error;
     })
     .catch(error => {
       console.error(chalk.red('Error archiving file:', error.message));
