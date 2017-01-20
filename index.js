@@ -107,7 +107,7 @@ function downloadFile(file) {
     console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
 
     return new Promise((resolve, reject) => {
-      fs.writeFile(path.join(archiveDirectory, file.name + '.zip'), data, (error) => {
+      fs.writeFile(path.join(archiveDirectory, file.name), data, (error) => {
         if (error) {
           reject(error);
         } else {
@@ -155,7 +155,7 @@ function scrapeFileUrl(file) {
       console.log(chalk.gray('Located file URL:', fileUrl));
 
       const parsed = url.parse(fileUrl);
-      const name = decodeURIComponent(path.basename(parsed.pathname, '.zip'));
+      const name = decodeURIComponent(path.basename(parsed.pathname));
 
       file.url = fileUrl;
       file.name = name;
