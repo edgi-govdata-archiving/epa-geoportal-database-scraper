@@ -150,6 +150,9 @@ function archiveFile(file) {
 
       shasum.update(zipData);
 
+      // @todo check lastModifiedAt && sha1sum and skip if file already is in saved manifest
+      // this would make the tool reentrant
+
       file.lastModifiedAt = new Date(response.headers['last-modified']);
       file.receivedAt = new Date();
       file.sha1sum = shasum.digest('hex');
