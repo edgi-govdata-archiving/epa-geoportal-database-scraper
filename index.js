@@ -101,6 +101,7 @@ function downloadFile(file) {
     file.lastModifiedAt = new Date(response.headers['last-modified']);
     file.receivedAt = new Date();
     file.sha1sum = shasum.digest('hex');
+    file.size = data.length;
 
     console.log(chalk.gray('Last modified:', file.lastModifiedAt.toLocaleString()));
     console.log(chalk.gray('SHA-1 sum:', file.sha1sum));
@@ -166,20 +167,21 @@ function scrapeFile(file) {
 
   return Promise.resolve()
     .then(() => {
-      return file.url
-        ? Promise.resolve()
-        : scrapeFileUrl(file);
+      if (!file.url) {
+        return scrapeFileUrl(file);
+      }
     })
     .then(() => {
-      return config.skipDownload || file.receivedAt
-        ? Promise.resolve()
-        : downloadFile(file);
+      if (!config.skipDownload && !file.receivedAt) {
+        return downloadFile(file);
+      }
     })
     .then(() => {
       console.log(chalk.gray('File scraped'));
     })
     .catch(error => {
-      console.error(chalk.red('Error archiving file:', error));
+      console.error(chalk.red('Error archiving file:', error.message));
+      file.error = error.message;
     });
 }
 
