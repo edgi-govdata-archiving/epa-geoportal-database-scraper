@@ -181,8 +181,8 @@ function scrapeFile(file) {
       delete file.error;
     })
     .catch(error => {
-      console.error(chalk.red('Error archiving file:', error.message));
-      file.error = error.message;
+      console.error(chalk.red('Error archiving file:', error.statusCode || error.message));
+      file.error = error.statusCode || error.message;
     });
 }
 
