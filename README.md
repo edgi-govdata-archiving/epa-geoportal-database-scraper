@@ -39,5 +39,3 @@ The "X-Requested-With" parameter (not HTTP header) somehow needed to be submitte
 5. Downloads the ZIP file
 6. Saves the ZIP file under the archive folder
 7. Updates manifest.json file under the archive folder
-
-The ability to unpack the ZIP files is already in the code, but due to a failure in unpacking the file with ID 11 (due to limitation/issue in yauzl), it is currently disabled. Besides, just archiving the ZIP files should be enough.
